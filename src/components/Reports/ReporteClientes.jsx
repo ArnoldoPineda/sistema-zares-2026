@@ -24,7 +24,7 @@ export default function ReporteClientes() {
           id,
           fecha_venta,
           estado,
-          clientes(id, nombre, ciudad, telefono, email),
+          clientes(id, nombre_completo, ciudad, telefono, email),
           detalles_venta(subtotal),
           cobros(monto_pagado, pago_delivery)
         `)
@@ -37,7 +37,7 @@ export default function ReporteClientes() {
 
       ventas?.forEach(venta => {
         const clienteId = venta.clientes?.id;
-        const clienteNombre = venta.clientes?.nombre || 'N/A';
+        const clienteNombre = venta.clientes?.nombre_completo || 'N/A';
         const ciudad = venta.clientes?.ciudad || 'N/A';
         const telefono = venta.clientes?.telefono || 'N/A';
         const email = venta.clientes?.email || 'N/A';

@@ -98,7 +98,7 @@ export default function VentasTable({
                       {formatDate(venta.fecha_venta)}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
-                      {venta.clientes?.nombre || 'N/A'}
+                      {venta.clientes?.nombre_completo || 'N/A'}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
                       {totalArticulos} {totalArticulos === 1 ? 'artículo' : 'artículos'}

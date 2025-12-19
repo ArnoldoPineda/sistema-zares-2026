@@ -22,7 +22,7 @@ export default function ReporteVentas() {
           id,
           fecha_venta,
           estado,
-          clientes(id, nombre, ciudad),
+          clientes(id, nombre_completo, ciudad),
           detalles_venta(
             id,
             cantidad,
@@ -48,7 +48,7 @@ export default function ReporteVentas() {
 
       ventas?.forEach(venta => {
         const ciudad = venta.clientes?.ciudad || 'Sin Ciudad';
-        const cliente = venta.clientes?.nombre || 'N/A';
+        const cliente = venta.clientes?.nombre_completo || 'N/A';
 
         if (!porCiudad[ciudad]) {
           porCiudad[ciudad] = {};

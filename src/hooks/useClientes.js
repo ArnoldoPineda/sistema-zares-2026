@@ -20,7 +20,7 @@ export const useClientes = () => {
       // Filtro de búsqueda
       if (searchTerm) {
         query = query.or(
-          `nombre.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,telefono.ilike.%${searchTerm}%,ciudad.ilike.%${searchTerm}%`
+          `nombre_completo.ilike.%${searchTerm}%,nombre_usuario.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,telefono.ilike.%${searchTerm}%,ciudad.ilike.%${searchTerm}%`
         );
       }
 

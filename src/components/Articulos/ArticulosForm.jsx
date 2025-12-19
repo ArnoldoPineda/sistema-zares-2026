@@ -1,272 +1,359 @@
-import React, { useState, useEffect } from 'react';
-import { X, Upload, Camera } from 'lucide-react';
+import React from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { supabase } from '../../services/supabaseClient';
+import { X, Upload, Link as LinkIcon, Camera, Lock } from 'lucide-react';
 
-export default function ArticulosForm({ articulo, onSave, onClose, isLoading, onUploadFoto }) {
+export default function ArticulosForm({ articulo, onClose, onSave }) {
   const [formData, setFormData] = useState({
-    codigo: '',
     nombre: '',
+    codigo: '',
+    cantidad_stock: 0,
+    foto_url: '',
+    enlace: '',
+    precio_costo: 0,
+    precio_unitario: 0,
     descripcion: '',
-    precio_costo: '',
-    precio_venta: '',
-    cantidad_stock: '',
-    cantidad_minima: '',
-    categoria: '',
+    categoria: ''
   });
 
-  const [errors, setErrors] = useState({});
-  const [fotoPreview, setFotoPreview] = useState(null);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [uploadingFoto, setUploadingFoto] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [preview, setPreview] = useState('');
+  const [showCamera, setShowCamera] = useState(false);
+  const [isNewArticulo, setIsNewArticulo] = useState(true);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+
+  // Función para generar código único
+  const generateUniqueCode = () => {
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substr(2, 5).toUpperCase();
+    return `ART-${timestamp}-${random}`;
+  };
 
   useEffect(() => {
-    if (articulo) {
+    if (articulo && articulo.id) {
+      // Editando artículo existente
+      setIsNewArticulo(false);
       setFormData({
-        codigo: articulo.codigo || '',
         nombre: articulo.nombre || '',
+        codigo: articulo.codigo || '',
+        cantidad_stock: articulo.cantidad_stock || 0,
+        foto_url: articulo.foto_url || '',
+        enlace: articulo.enlace || '',
+        precio_costo: articulo.precio_costo || 0,
+        precio_unitario: articulo.precio_unitario || 0,
         descripcion: articulo.descripcion || '',
-        precio_costo: articulo.precio_costo || '',
-        precio_venta: articulo.precio_venta || '',
-        cantidad_stock: articulo.cantidad_stock || '',
-        cantidad_minima: articulo.cantidad_minima || '',
-        categoria: articulo.categoria || '',
+        categoria: articulo.categoria || ''
       });
-      if (articulo.foto_url) {
-        setFotoPreview(articulo.foto_url);
-      }
+      setPreview(articulo.foto_url || '');
+    } else {
+      // Nuevo artículo - generar código
+      setIsNewArticulo(true);
+      setFormData(prev => ({
+        ...prev,
+        codigo: generateUniqueCode()
+      }));
     }
   }, [articulo]);
 
-  const validateForm = () => {
-    const newErrors = {};
+  // Iniciar cámara
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } 
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        setShowCamera(true);
+      }
+    } catch (error) {
+      setError('No se pudo acceder a la cámara: ' + error.message);
+    }
+  };
 
-    if (!formData.codigo.trim()) newErrors.codigo = 'El código es requerido';
-    if (!formData.nombre.trim()) newErrors.nombre = 'El nombre es requerido';
-    if (!formData.precio_costo) newErrors.precio_costo = 'El precio costo es requerido';
-    if (!formData.precio_venta) newErrors.precio_venta = 'El precio venta es requerido';
-    if (!formData.cantidad_stock) newErrors.cantidad_stock = 'La cantidad es requerida';
-    if (!formData.categoria.trim()) newErrors.categoria = 'La categoría es requerida';
+  // Capturar foto de cámara
+  const captureFoto = () => {
+    if (canvasRef.current && videoRef.current) {
+      const context = canvasRef.current.getContext('2d');
+      context.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
+      
+      canvasRef.current.toBlob((blob) => {
+        const file = new File([blob], `foto_${Date.now()}.jpg`, { type: 'image/jpeg' });
+        handleImageUploadFile(file);
+        stopCamera();
+      }, 'image/jpeg', 0.95);
+    }
+  };
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  // Detener cámara
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      videoRef.current.srcObject.getTracks().forEach(track => track.stop());
+    }
+    setShowCamera(false);
+  };
+
+  // Manejo de carga de imagen
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      handleImageUploadFile(file);
+    }
+  };
+
+  // Función para subir archivo
+  const handleImageUploadFile = async (file) => {
+    // Validar tamaño (máx 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('La imagen debe ser menor a 5MB');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+      const filePath = `articulos/${fileName}`;
+
+      // Subir a Supabase Storage
+      const { data, error: uploadError } = await supabase.storage
+        .from('articulos-images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Obtener URL pública
+      const { data: publicUrl } = supabase.storage
+        .from('articulos-images')
+        .getPublicUrl(filePath);
+
+      setFormData(prev => ({
+        ...prev,
+        foto_url: publicUrl.publicUrl
+      }));
+      setPreview(publicUrl.publicUrl);
+      setError('');
+    } catch (err) {
+      setError(`Error al subir imagen: ${err.message}`);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Pegar URL de imagen directa
+  const handlePasteImageUrl = (e) => {
+    const url = e.target.value;
+    setFormData(prev => ({ ...prev, foto_url: url }));
+    setPreview(url);
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value,
-    }));
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: '',
-      }));
-    }
-  };
-
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setSelectedFile(file);
-      // Mostrar preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFotoPreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleCameraCapture = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setSelectedFile(file);
-      // Mostrar preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFotoPreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleUploadFoto = async () => {
-    if (!selectedFile || !articulo) {
-      alert('Primero debes guardar el artículo antes de subir la foto');
+    
+    // No permitir cambio del código
+    if (name === 'codigo') {
       return;
     }
 
-    setUploadingFoto(true);
-    const result = await onUploadFoto(articulo.id, selectedFile);
-    setUploadingFoto(false);
-
-    if (result.success) {
-      setSelectedFile(null);
-      alert('✓ Foto subida exitosamente');
-    }
+    setFormData(prev => ({
+      ...prev,
+      [name]: (name === 'cantidad_stock' || name === 'precio_costo' || name === 'precio_unitario') 
+        ? (value === '' ? 0 : parseFloat(value)) 
+        : value
+    }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+    setLoading(true);
 
-    if (!validateForm()) return;
+    try {
+      // Validaciones básicas
+      if (!formData.nombre.trim()) {
+        throw new Error('El nombre del artículo es requerido');
+      }
 
-    onSave({
-      ...formData,
-      precio_costo: parseFloat(formData.precio_costo),
-      precio_venta: parseFloat(formData.precio_venta),
-      cantidad_stock: parseInt(formData.cantidad_stock),
-      cantidad_minima: parseInt(formData.cantidad_minima) || 5,
-    });
+      if (formData.cantidad_stock < 0) {
+        throw new Error('El stock no puede ser negativo');
+      }
+
+      if (formData.precio_unitario <= 0) {
+        throw new Error('El precio de venta debe ser mayor a 0');
+      }
+
+      if (articulo?.id) {
+        // Actualizar - el código no se actualiza
+        const { error: updateError } = await supabase
+          .from('articulos')
+          .update({
+            nombre: formData.nombre,
+            cantidad_stock: formData.cantidad_stock,
+            foto_url: formData.foto_url,
+            enlace: formData.enlace,
+            precio_costo: formData.precio_costo,
+            precio_unitario: formData.precio_unitario,
+            descripcion: formData.descripcion,
+            categoria: formData.categoria
+            // NO incluimos 'codigo' en la actualización
+          })
+          .eq('id', articulo.id);
+
+        if (updateError) throw updateError;
+      } else {
+        // Crear nuevo - el código se genera automáticamente
+        const { error: insertError } = await supabase
+          .from('articulos')
+          .insert([formData]);
+
+        if (insertError) throw insertError;
+      }
+
+      onSave();
+    } catch (err) {
+      setError(err.message || 'Error al guardar artículo');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-800 text-white p-6 flex justify-between items-center">
-          <h2 className="text-2xl font-bold">
-            {articulo ? '✏️ Editar Artículo' : '➕ Nuevo Artículo'}
+        <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white">
+          <h2 className="text-xl font-bold">
+            {isNewArticulo ? 'Nuevo Artículo' : 'Editar Artículo'}
           </h2>
-          <button onClick={onClose} className="hover:bg-blue-700 p-2 rounded-lg">
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-gray-100 rounded-full"
+          >
             <X size={24} />
           </button>
         </div>
 
-        {/* Contenido */}
+        {/* Formulario */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* SECCIÓN 1: Foto */}
-          <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">📸 Foto del Artículo</h3>
-
-            {/* Preview de la foto */}
-            {fotoPreview && (
-              <div className="mb-4">
-                <img
-                  src={fotoPreview}
-                  alt="Preview"
-                  className="w-full h-64 object-cover rounded-lg border border-gray-300"
-                />
-              </div>
-            )}
-
-            {/* Botones para seleccionar foto */}
-            <div className="flex gap-3 mb-4 flex-wrap">
-              {/* Opción 1: Archivo */}
-              <div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="hidden"
-                  id="file-input"
-                />
-                <label
-                  htmlFor="file-input"
-                  className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 font-semibold"
-                >
-                  <Upload size={18} />
-                  📁 Seleccionar Archivo
-                </label>
-              </div>
-
-              {/* Opción 2: Cámara */}
-              <div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleCameraCapture}
-                  className="hidden"
-                  id="camera-input"
-                />
-                <label
-                  htmlFor="camera-input"
-                  className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 font-semibold"
-                  title="Usar cámara del móvil"
-                >
-                  <Camera size={18} />
-                  📷 Tomar Foto
-                </label>
-              </div>
-
-              {/* Opción 3: Subir foto (solo si articulo ya existe y hay archivo) */}
-              {articulo && selectedFile && (
-                <button
-                  type="button"
-                  onClick={handleUploadFoto}
-                  disabled={uploadingFoto}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 font-semibold disabled:bg-gray-400"
-                >
-                  {uploadingFoto ? '⏳ Subiendo...' : '✓ Subir Foto'}
-                </button>
-              )}
-
-              {/* Mensaje si aún no se guarda el artículo */}
-              {!articulo && selectedFile && (
-                <div className="w-full text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
-                  💡 Primero guarda el artículo, luego podrás subir la foto
-                </div>
-              )}
+          {error && (
+            <div className="p-4 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+              {error}
             </div>
+          )}
 
-            {/* Estado de la foto */}
-            {articulo?.foto_url && !selectedFile && (
-              <div className="text-sm text-green-600 bg-green-50 p-3 rounded-lg">
-                ✓ Este artículo ya tiene foto subida
-              </div>
-            )}
-          </div>
-
-          {/* SECCIÓN 2: Datos del artículo */}
-          <div className="space-y-6">
-            <h3 className="text-lg font-bold text-gray-900">📝 Información del Artículo</h3>
-
-            {/* Grid de dos columnas */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Código */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Código del Artículo
+          {/* Información Básica */}
+          <div className="space-y-4">
+            <h3 className="font-semibold text-gray-700">Información Básica</h3>
+            
+            <div className="grid grid-cols-2 gap-4">
+              {/* Campo Código - Solo lectura */}
+              <div className="relative">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <Lock size={16} className="inline mr-2" />
+                  Código (Automático)
                 </label>
-                <input
-                  type="text"
-                  name="codigo"
-                  value={formData.codigo}
-                  onChange={handleChange}
-                  placeholder="Ej: ART001"
-                  className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                    errors.codigo
-                      ? 'border-red-500 focus:ring-red-500'
-                      : 'border-gray-300 focus:ring-blue-500'
-                  }`}
-                />
-                {errors.codigo && <p className="text-red-500 text-sm mt-1">{errors.codigo}</p>}
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="codigo"
+                    value={formData.codigo || ''}
+                    readOnly
+                    disabled
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed focus:ring-0"
+                  />
+                  <Lock size={16} className="absolute right-3 top-3 text-gray-400" />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Este código se genera automáticamente y no puede modificarse
+                </p>
               </div>
 
-              {/* Nombre */}
+              {/* Campo Nombre */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nombre del Artículo
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nombre *
                 </label>
                 <input
                   type="text"
                   name="nombre"
                   value={formData.nombre}
                   onChange={handleChange}
-                  placeholder="Ej: Lámpara LED"
-                  className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                    errors.nombre
-                      ? 'border-red-500 focus:ring-red-500'
-                      : 'border-gray-300 focus:ring-blue-500'
-                  }`}
+                  placeholder="Ej: Lámpara de techo"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
                 />
-                {errors.nombre && <p className="text-red-500 text-sm mt-1">{errors.nombre}</p>}
               </div>
 
-              {/* Categoría */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Stock Disponible
+                </label>
+                <input
+                  type="number"
+                  name="cantidad_stock"
+                  value={formData.cantidad_stock}
+                  onChange={handleChange}
+                  min="0"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Precio de Costo (L.)
+                </label>
+                <input
+                  type="number"
+                  name="precio_costo"
+                  value={formData.precio_costo || 0}
+                  onChange={handleChange}
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Precio de Venta (L.) *
+                </label>
+                <input
+                  type="number"
+                  name="precio_unitario"
+                  value={formData.precio_unitario || 0}
+                  onChange={handleChange}
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+
+              {/* Margen de ganancia (informativo) */}
+              {formData.precio_costo > 0 && formData.precio_unitario > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Margen de Ganancia
+                  </label>
+                  <div className="w-full px-3 py-2 border border-green-300 rounded-lg bg-green-50 text-green-700 font-medium">
+                    {((((formData.precio_unitario - formData.precio_costo) / formData.precio_costo) * 100).toFixed(2))}%
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Sección Descripción y Categoría */}
+          <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
+            <h3 className="font-semibold text-gray-700">Detalles Adicionales</h3>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Categoría
                 </label>
                 <input
@@ -274,111 +361,144 @@ export default function ArticulosForm({ articulo, onSave, onClose, isLoading, on
                   name="categoria"
                   value={formData.categoria}
                   onChange={handleChange}
-                  placeholder="Ej: Electrónica"
-                  className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                    errors.categoria
-                      ? 'border-red-500 focus:ring-red-500'
-                      : 'border-gray-300 focus:ring-blue-500'
-                  }`}
-                />
-                {errors.categoria && <p className="text-red-500 text-sm mt-1">{errors.categoria}</p>}
-              </div>
-
-              {/* Precio Costo */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Precio Costo (L.)
-                </label>
-                <input
-                  type="number"
-                  name="precio_costo"
-                  value={formData.precio_costo}
-                  onChange={handleChange}
-                  placeholder="0.00"
-                  step="0.01"
-                  min="0"
-                  className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                    errors.precio_costo
-                      ? 'border-red-500 focus:ring-red-500'
-                      : 'border-gray-300 focus:ring-blue-500'
-                  }`}
-                />
-                {errors.precio_costo && <p className="text-red-500 text-sm mt-1">{errors.precio_costo}</p>}
-              </div>
-
-              {/* Precio Venta */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Precio Venta (L.)
-                </label>
-                <input
-                  type="number"
-                  name="precio_venta"
-                  value={formData.precio_venta}
-                  onChange={handleChange}
-                  placeholder="0.00"
-                  step="0.01"
-                  min="0"
-                  className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                    errors.precio_venta
-                      ? 'border-red-500 focus:ring-red-500'
-                      : 'border-gray-300 focus:ring-blue-500'
-                  }`}
-                />
-                {errors.precio_venta && <p className="text-red-500 text-sm mt-1">{errors.precio_venta}</p>}
-              </div>
-
-              {/* Cantidad Stock */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cantidad en Stock
-                </label>
-                <input
-                  type="number"
-                  name="cantidad_stock"
-                  value={formData.cantidad_stock}
-                  onChange={handleChange}
-                  placeholder="0"
-                  min="0"
-                  className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                    errors.cantidad_stock
-                      ? 'border-red-500 focus:ring-red-500'
-                      : 'border-gray-300 focus:ring-blue-500'
-                  }`}
-                />
-                {errors.cantidad_stock && <p className="text-red-500 text-sm mt-1">{errors.cantidad_stock}</p>}
-              </div>
-
-              {/* Cantidad Mínima */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cantidad Mínima
-                </label>
-                <input
-                  type="number"
-                  name="cantidad_minima"
-                  value={formData.cantidad_minima}
-                  onChange={handleChange}
-                  placeholder="5"
-                  min="0"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Ej: Iluminación, Hogar, etc"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
             </div>
 
-            {/* Descripción (full width) */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Descripción (Opcional)
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Descripción
               </label>
               <textarea
                 name="descripcion"
                 value={formData.descripcion}
                 onChange={handleChange}
-                placeholder="Detalles adicionales del producto..."
-                rows="4"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Descripción detallada del artículo..."
+                rows="3"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
+            </div>
+          </div>
+
+          {/* Sección Foto */}
+          <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
+            <h3 className="font-semibold text-gray-700">Foto del Artículo</h3>
+            
+            {/* Preview de imagen */}
+            {preview && (
+              <div className="mb-4">
+                <img
+                  src={preview}
+                  alt="Preview"
+                  className="h-48 w-48 object-cover rounded-lg border border-gray-300"
+                  onError={(e) => {
+                    e.target.src = 'https://via.placeholder.com/200?text=Error+Imagen';
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Opción 1: Subir imagen */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Upload size={16} className="inline mr-2" />
+                Opción 1: Subir desde tu computadora
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                disabled={uploading}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+              {uploading && <p className="text-sm text-blue-600 mt-1">Subiendo...</p>}
+            </div>
+
+            {/* Opción 2: Tomar foto con cámara */}
+            <div>
+              <button
+                type="button"
+                onClick={startCamera}
+                disabled={showCamera}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 font-medium"
+              >
+                <Camera size={18} />
+                📱 Opción 2: Tomar foto con cámara
+              </button>
+            </div>
+
+            {/* Cámara en vivo */}
+            {showCamera && (
+              <div className="border-2 border-blue-400 rounded-lg p-4 space-y-3">
+                <video 
+                  ref={videoRef} 
+                  autoPlay 
+                  playsInline
+                  className="w-full rounded-lg bg-black" 
+                />
+                <canvas 
+                  ref={canvasRef} 
+                  className="hidden" 
+                  width={640} 
+                  height={480} 
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={captureFoto}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                  >
+                    ✅ Capturar foto
+                  </button>
+                  <button
+                    type="button"
+                    onClick={stopCamera}
+                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+                  >
+                    ❌ Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Opción 3: Pegar URL */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <LinkIcon size={16} className="inline mr-2" />
+                Opción 3: Pegar URL de imagen
+              </label>
+              <input
+                type="url"
+                value={formData.foto_url || ''}
+                onChange={handlePasteImageUrl}
+                placeholder="https://ejemplo.com/imagen.jpg"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Sección Enlaces */}
+          <div className="space-y-4 p-4 bg-blue-50 rounded-lg">
+            <h3 className="font-semibold text-gray-700">Enlaces de Referencia</h3>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                <LinkIcon size={16} className="inline mr-2" />
+                Enlace (Amazon, Proveedores, etc)
+              </label>
+              <input
+                type="url"
+                name="enlace"
+                value={formData.enlace || ''}
+                onChange={handleChange}
+                placeholder="https://a.co/d/fC4LuiP o link de proveedor"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              />
+              <p className="text-xs text-gray-600 mt-1">
+                Coloca aquí URLs de Amazon, referencias de proveedores, o cualquier enlace relacionado
+              </p>
             </div>
           </div>
 
@@ -387,16 +507,16 @@ export default function ArticulosForm({ articulo, onSave, onClose, isLoading, on
             <button
               type="button"
               onClick={onClose}
-              className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              disabled={isLoading}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:bg-gray-400"
+              disabled={loading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
             >
-              {isLoading ? 'Guardando...' : 'Guardar Artículo'}
+              {loading ? 'Guardando...' : 'Guardar Artículo'}
             </button>
           </div>
         </form>

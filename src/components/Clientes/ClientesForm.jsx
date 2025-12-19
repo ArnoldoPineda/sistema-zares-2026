@@ -3,8 +3,8 @@ import { X } from 'lucide-react';
 
 export default function ClientesForm({ cliente, onSave, onClose, isLoading }) {
   const [formData, setFormData] = useState({
-    nombre: '',
-    apellido: '',
+    nombre_usuario: '',
+    nombre_completo: '',
     email: '',
     telefono: '',
     celular: '',
@@ -26,8 +26,8 @@ export default function ClientesForm({ cliente, onSave, onClose, isLoading }) {
   useEffect(() => {
     if (cliente) {
       setFormData({
-        nombre: cliente.nombre || '',
-        apellido: cliente.apellido || '',
+        nombre_usuario: cliente.nombre_usuario || '',
+        nombre_completo: cliente.nombre_completo || '',
         email: cliente.email || '',
         telefono: cliente.telefono || '',
         celular: cliente.celular || '',
@@ -49,7 +49,8 @@ export default function ClientesForm({ cliente, onSave, onClose, isLoading }) {
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.nombre.trim()) newErrors.nombre = 'El nombre es requerido';
+    if (!formData.nombre_usuario.trim()) newErrors.nombre_usuario = 'El nombre de usuario es requerido';
+    if (!formData.nombre_completo.trim()) newErrors.nombre_completo = 'El nombre completo es requerido';
     if (!formData.ciudad.trim()) newErrors.ciudad = 'La ciudad es requerida';
 
     setErrors(newErrors);
@@ -97,43 +98,51 @@ export default function ClientesForm({ cliente, onSave, onClose, isLoading }) {
 
         {/* Contenido */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* SECCIÓN 0: Nombre de Usuario */}
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 mb-4">👤 Nombre de Usuario</h3>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Nombre de Usuario *
+              </label>
+              <input
+                type="text"
+                name="nombre_usuario"
+                value={formData.nombre_usuario}
+                onChange={handleChange}
+                placeholder="Ej: juan_perez, cliente001"
+                className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                  errors.nombre_usuario
+                    ? 'border-red-500 focus:ring-red-500'
+                    : 'border-gray-300 focus:ring-green-500'
+                }`}
+              />
+              {errors.nombre_usuario && <p className="text-red-500 text-sm mt-1">{errors.nombre_usuario}</p>}
+            </div>
+          </div>
+
           {/* SECCIÓN 1: Información Personal */}
           <div>
             <h3 className="text-lg font-bold text-gray-900 mb-4">👤 Información Personal</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Nombre */}
-              <div>
+              {/* Nombre Completo */}
+              <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nombre *
+                  Nombre del Cliente *
                 </label>
                 <input
                   type="text"
-                  name="nombre"
-                  value={formData.nombre}
+                  name="nombre_completo"
+                  value={formData.nombre_completo}
                   onChange={handleChange}
-                  placeholder="Ej: Juan"
+                  placeholder="Ej: Juan Pérez García"
                   className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                    errors.nombre
+                    errors.nombre_completo
                       ? 'border-red-500 focus:ring-red-500'
                       : 'border-gray-300 focus:ring-green-500'
                   }`}
                 />
-                {errors.nombre && <p className="text-red-500 text-sm mt-1">{errors.nombre}</p>}
-              </div>
-
-              {/* Apellido */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Apellido
-                </label>
-                <input
-                  type="text"
-                  name="apellido"
-                  value={formData.apellido}
-                  onChange={handleChange}
-                  placeholder="Ej: Pérez"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
+                {errors.nombre_completo && <p className="text-red-500 text-sm mt-1">{errors.nombre_completo}</p>}
               </div>
 
               {/* Email */}

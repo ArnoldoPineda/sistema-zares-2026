@@ -51,8 +51,8 @@ export const useVentas = () => {
           id,
           fecha_venta,
           estado,
-          clientes(nombre, ciudad),
-          detalles_venta(cantidad, subtotal),
+          clientes(nombre_completo, nombre_usuario, ciudad),
+          detalles_venta(cantidad, subtotal, precio_unitario, articulos(nombre, cantidad_stock)),
           cobros(liquidacion, banco, monto_pagado, pago_delivery)
         `,
           { count: 'exact' }
@@ -61,7 +61,7 @@ export const useVentas = () => {
         .range(from, to);
 
       if (searchTerm) {
-        query = query.or(`clientes.nombre.ilike.%${searchTerm}%`);
+        query = query.or(`clientes.nombre_completo.ilike.%${searchTerm}%`);
       }
 
       const { data, error: err, count } = await query;
@@ -112,7 +112,7 @@ export const useVentas = () => {
           id,
           fecha_venta,
           estado,
-          clientes(id, nombre, ciudad, telefono),
+          clientes(nombre_completo, nombre_usuario, ciudad),
           detalles_venta(
             id,
             articulo_id,

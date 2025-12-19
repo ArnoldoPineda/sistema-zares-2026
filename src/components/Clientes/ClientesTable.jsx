@@ -45,6 +45,7 @@ export default function ClientesTable({
         <table className="w-full">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Usuario</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Nombre</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Email</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Teléfono</th>
@@ -58,7 +59,7 @@ export default function ClientesTable({
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="8" className="px-6 py-8 text-center text-gray-500">
+                <td colSpan="9" className="px-6 py-8 text-center text-gray-500">
                   <div className="flex justify-center items-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                   </div>
@@ -66,7 +67,7 @@ export default function ClientesTable({
               </tr>
             ) : clientes.length === 0 ? (
               <tr>
-                <td colSpan="8" className="px-6 py-8 text-center text-gray-500">
+                <td colSpan="9" className="px-6 py-8 text-center text-gray-500">
                   No hay clientes que mostrar
                 </td>
               </tr>
@@ -74,13 +75,17 @@ export default function ClientesTable({
               clientes.map((cli) => (
                 <tr key={cli.id} className="border-b border-gray-200 hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                    <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-xs font-semibold">
+                      {cli.nombre_usuario || 'N/A'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
                     <div className="flex items-center gap-2">
                       <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
-                        {cli.nombre.charAt(0).toUpperCase()}
+                        {(cli.nombre_completo || '?').charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <p className="font-medium">{cli.nombre}</p>
-                        {cli.apellido && <p className="text-xs text-gray-500">{cli.apellido}</p>}
+                        <p className="font-medium">{cli.nombre_completo || 'N/A'}</p>
                       </div>
                     </div>
                   </td>
@@ -142,7 +147,7 @@ export default function ClientesTable({
                       </button>
                       <button
                         onClick={() => {
-                          if (window.confirm(`¿Estás seguro de eliminar a ${cli.nombre}?`)) {
+                          if (window.confirm(`¿Estás seguro de eliminar a ${cli.nombre_completo}?`)) {
                             onDelete(cli.id);
                           }
                         }}

@@ -21,7 +21,7 @@ export const useReportes = () => {
           observaciones,
           clientes(
             id,
-            nombre,
+            nombre_completo,
             telefono,
             ciudad,
             direccion
@@ -52,7 +52,7 @@ export const useReportes = () => {
           id: venta.id,
           fecha: venta.fecha_venta,
           estado: venta.estado,
-          cliente: venta.clientes?.nombre || 'N/A',
+          cliente: venta.clientes?.nombre_completo || 'N/A',
           telefono: venta.clientes?.telefono || 'N/A',
           direccion: venta.clientes?.direccion || 'N/A',
           ciudad: ciudad,
@@ -151,7 +151,7 @@ export const useReportes = () => {
           id,
           estado,
           fecha_venta,
-          clientes(nombre),
+          clientes(nombre_completo),
           detalles_venta(subtotal)
         `)
         .order('fecha_venta', { ascending: false });
@@ -170,7 +170,7 @@ export const useReportes = () => {
         porEstado[venta.estado].push({
           id: venta.id,
           fecha: venta.fecha_venta,
-          cliente: venta.clientes?.nombre || 'N/A',
+          cliente: venta.clientes?.nombre_completo || 'N/A',
           monto: total,
         });
       });
@@ -194,7 +194,7 @@ export const useReportes = () => {
       const { data: ventas, error: err } = await supabase
         .from('ventas')
         .select(`
-          clientes(id, nombre),
+          clientes(id, nombre_completo),
           detalles_venta(subtotal)
         `);
 
@@ -204,7 +204,7 @@ export const useReportes = () => {
 
       ventas?.forEach(venta => {
         const clienteId = venta.clientes?.id;
-        const clienteNombre = venta.clientes?.nombre || 'N/A';
+        const clienteNombre = venta.clientes?.nombre_completo || 'N/A';
         const total = venta.detalles_venta?.reduce((sum, det) => sum + (det.subtotal || 0), 0) || 0;
 
         if (!clientesMap[clienteId]) {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Edit2, Trash2, Upload, Search, Camera } from 'lucide-react';
+import { Eye, Trash2, Edit2, Upload, Search, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 
 export default function ArticulosTable({
   articulos,
@@ -14,71 +14,68 @@ export default function ArticulosTable({
   totalCount,
   itemsPerPage = 10,
 }) {
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedArticulo, setSelectedArticulo] = useState(null);
+  const [showModal, setShowModal] = useState(false);
   const [uploadingId, setUploadingId] = useState(null);
-  const [activeCamera, setActiveCamera] = useState(null);
-
-  const handleFileChange = (e, articuloId) => {
-    const file = e.target.files[0];
-    if (file) {
-      setSelectedFile({ articuloId, file });
-    }
-  };
-
-  const handleCameraCapture = (e, articuloId) => {
-    const file = e.target.files[0];
-    if (file) {
-      setSelectedFile({ articuloId, file });
-      setActiveCamera(null);
-    }
-  };
-
-  const handleUploadFoto = async (articuloId) => {
-    if (!selectedFile || selectedFile.articuloId !== articuloId) return;
-
-    setUploadingId(articuloId);
-    await onUploadFoto(articuloId, selectedFile.file);
-    setUploadingId(null);
-    setSelectedFile(null);
-  };
 
   const totalPages = Math.ceil(totalCount / itemsPerPage);
 
+  const handleViewDetails = (articulo) => {
+    setSelectedArticulo(articulo);
+    setShowModal(true);
+  };
+
+  const handleUploadFoto = async (articuloId, event) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setUploadingId(articuloId);
+      await onUploadFoto(articuloId, file);
+      setUploadingId(null);
+    }
+  };
+
+  const handleDelete = (articulo) => {
+    if (window.confirm(`¿Eliminar "${articulo.nombre}"?`)) {
+      onDelete(articulo.id);
+    }
+  };
+
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden">
-      {/* Header con búsqueda */}
+    <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+      {/* SEARCH BAR */}
       <div className="p-6 border-b border-gray-200">
         <div className="relative">
           <Search className="absolute left-3 top-3 text-gray-400" size={20} />
           <input
             type="text"
-            placeholder="Buscar por código, nombre o categoría..."
+            placeholder="Buscar por nombre, código, descripción..."
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
       </div>
 
-      {/* Tabla */}
+      {/* TABLA */}
       <div className="overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="bg-gray-100 border-b border-gray-200">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Código</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Nombre</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Categoría</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Precio Costo</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Precio Venta</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Stock</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Foto</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Acciones</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Foto</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Código</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Nombre</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Stock</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Precio Costo</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Precio Venta</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Categoría</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Enlace</th>
+              <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase">Acciones</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="8" className="px-6 py-8 text-center text-gray-500">
+                <td colSpan="9" className="px-6 py-8 text-center">
                   <div className="flex justify-center items-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                   </div>
@@ -86,103 +83,130 @@ export default function ArticulosTable({
               </tr>
             ) : articulos.length === 0 ? (
               <tr>
-                <td colSpan="8" className="px-6 py-8 text-center text-gray-500">
-                  No hay artículos que mostrar
+                <td colSpan="9" className="px-6 py-8 text-center text-gray-500">
+                  📦 No hay artículos disponibles
                 </td>
               </tr>
             ) : (
-              articulos.map((art) => (
-                <tr key={art.id} className="border-b border-gray-200 hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{art.codigo}</td>
-                  <td className="px-6 py-4 text-sm text-gray-700">{art.nombre}</td>
-                  <td className="px-6 py-4 text-sm text-gray-700">
-                    <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                      {art.categoria}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-700">L. {art.precio_costo.toFixed(2)}</td>
-                  <td className="px-6 py-4 text-sm font-semibold text-green-600">L. {art.precio_venta.toFixed(2)}</td>
-                  <td className="px-6 py-4 text-sm">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      art.cantidad_stock >= art.cantidad_minima
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {art.cantidad_stock}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    {art.foto_url ? (
-                      <span className="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
-                        ✓ Subida
-                      </span>
-                    ) : (
-                      <div className="space-y-2">
-                        {/* OPCIÓN 1: Seleccionar archivo */}
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => handleFileChange(e, art.id)}
-                            className="hidden"
-                            id={`file-${art.id}`}
-                          />
-                          <label
-                            htmlFor={`file-${art.id}`}
-                            className="cursor-pointer inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs font-medium hover:bg-yellow-200"
-                          >
-                            📁 Archivo
-                          </label>
-
-                          {/* OPCIÓN 2: Usar cámara (solo móvil) */}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            capture="environment"
-                            onChange={(e) => handleCameraCapture(e, art.id)}
-                            className="hidden"
-                            id={`camera-${art.id}`}
-                          />
-                          <label
-                            htmlFor={`camera-${art.id}`}
-                            className="cursor-pointer inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-medium hover:bg-purple-200"
-                            title="Usar cámara del móvil"
-                          >
-                            <Camera size={14} />
-                            Cámara
-                          </label>
-
-                          {/* Botón subir si hay archivo seleccionado */}
-                          {selectedFile?.articuloId === art.id && (
-                            <button
-                              onClick={() => handleUploadFoto(art.id)}
-                              disabled={uploadingId === art.id}
-                              className="px-2 py-1 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 disabled:bg-gray-400"
-                            >
-                              {uploadingId === art.id ? '⏳...' : '✓ Subir'}
-                            </button>
-                          )}
+              articulos.map((articulo) => (
+                <tr key={articulo.id} className="border-b border-gray-200 hover:bg-gray-50 transition">
+                  {/* FOTO */}
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      {articulo.foto_url ? (
+                        <img
+                          src={articulo.foto_url}
+                          alt={articulo.nombre}
+                          className="w-12 h-12 rounded-lg object-cover"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center text-gray-400">
+                          📦
                         </div>
-                      </div>
+                      )}
+                      <label className="cursor-pointer">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleUploadFoto(articulo.id, e)}
+                          className="hidden"
+                        />
+                        <Upload
+                          size={16}
+                          className={`text-blue-600 hover:text-blue-800 ${
+                            uploadingId === articulo.id ? 'animate-spin' : ''
+                          }`}
+                        />
+                      </label>
+                    </div>
+                  </td>
+
+                  {/* CÓDIGO */}
+                  <td className="px-6 py-4">
+                    <span className="inline-block bg-gray-100 px-3 py-1 rounded-full text-xs font-mono text-gray-800">
+                      {articulo.codigo}
+                    </span>
+                  </td>
+
+                  {/* NOMBRE */}
+                  <td className="px-6 py-4">
+                    <p className="font-semibold text-gray-900 line-clamp-2">{articulo.nombre}</p>
+                  </td>
+
+                  {/* STOCK */}
+                  <td className="px-6 py-4">
+                    <div
+                      className={`inline-block px-3 py-1 rounded-full text-sm font-bold ${
+                        articulo.cantidad_stock > 20
+                          ? 'bg-green-100 text-green-800'
+                          : articulo.cantidad_stock > 5
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}
+                    >
+                      {articulo.cantidad_stock} unidades
+                    </div>
+                  </td>
+
+                  {/* PRECIO COSTO */}
+                  <td className="px-6 py-4">
+                    <p className="text-gray-700 font-semibold">
+                      L. {articulo.precio_costo?.toFixed(2) || '0.00'}
+                    </p>
+                  </td>
+
+                  {/* PRECIO VENTA */}
+                  <td className="px-6 py-4">
+                    <p className="text-green-600 font-bold text-lg">
+                      L. {articulo.precio_unitario?.toFixed(2) || '0.00'}
+                    </p>
+                  </td>
+
+                  {/* CATEGORÍA */}
+                  <td className="px-6 py-4">
+                    <span className="text-xs bg-purple-100 text-purple-800 px-3 py-1 rounded-full">
+                      {articulo.categoria || 'N/A'}
+                    </span>
+                  </td>
+
+                  {/* ENLACE - NUEVO */}
+                  <td className="px-6 py-4">
+                    {articulo.enlace ? (
+                      <a
+                        href={articulo.enlace}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-600 rounded-full text-xs hover:bg-blue-200 transition"
+                      >
+                        <ExternalLink size={14} />
+                        Ver
+                      </a>
+                    ) : (
+                      <span className="text-xs text-gray-400">—</span>
                     )}
                   </td>
-                  <td className="px-6 py-4 text-sm">
-                    <div className="flex gap-2">
+
+                  {/* ACCIONES */}
+                  <td className="px-6 py-4 text-center">
+                    <div className="flex justify-center gap-2">
                       <button
-                        onClick={() => onEdit(art)}
+                        onClick={() => handleViewDetails(articulo)}
+                        title="Ver detalles"
                         className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition"
+                      >
+                        <Eye size={18} />
+                      </button>
+                      <button
+                        onClick={() => onEdit(articulo)}
                         title="Editar"
+                        className="p-2 text-orange-600 hover:bg-orange-100 rounded-lg transition"
                       >
                         <Edit2 size={18} />
                       </button>
                       <button
-                        onClick={() => {
-                          if (window.confirm('¿Estás seguro de eliminar este artículo?')) {
-                            onDelete(art.id);
-                          }
-                        }}
-                        className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition"
+                        onClick={() => handleDelete(articulo)}
                         title="Eliminar"
+                        className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition"
                       >
                         <Trash2 size={18} />
                       </button>
@@ -195,38 +219,179 @@ export default function ArticulosTable({
         </table>
       </div>
 
-      {/* Paginación */}
-      <div className="px-6 py-4 border-t border-gray-200 flex justify-between items-center">
-        <span className="text-sm text-gray-600">
-          Mostrando {articulos.length > 0 ? (page - 1) * itemsPerPage + 1 : 0} - {Math.min(page * itemsPerPage, totalCount)} de {totalCount} artículos
-        </span>
-        <div className="flex gap-2">
-          <button
-            onClick={() => onPageChange(page - 1)}
-            disabled={page === 1}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            ← Anterior
-          </button>
-          <span className="px-4 py-2 flex items-center">
-            Página {page} de {totalPages}
-          </span>
-          <button
-            onClick={() => onPageChange(page + 1)}
-            disabled={page === totalPages}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Siguiente →
-          </button>
-        </div>
-      </div>
+      {/* PAGINACIÓN */}
+      {totalPages > 1 && (
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+          <p className="text-sm text-gray-600">
+            Mostrando <span className="font-semibold">{(page - 1) * itemsPerPage + 1}</span> a{' '}
+            <span className="font-semibold">{Math.min(page * itemsPerPage, totalCount)}</span> de{' '}
+            <span className="font-semibold">{totalCount}</span> artículos
+          </p>
 
-      {/* Info de cómo subir fotos */}
-      <div className="bg-blue-50 border-t border-blue-200 p-4">
-        <p className="text-sm text-blue-800">
-          <strong>📸 Cómo subir fotos:</strong> En cada artículo sin foto, elige 📁 "Archivo" de tu galería o 📷 "Cámara" para tomar una foto con el móvil, luego haz click en "✓ Subir".
-        </p>
-      </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onPageChange(page - 1)}
+              disabled={page === 1}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              <ChevronLeft size={18} />
+              Anterior
+            </button>
+
+            <div className="flex items-center gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => onPageChange(p)}
+                  className={`w-10 h-10 rounded-lg font-semibold transition ${
+                    page === p
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => onPageChange(page + 1)}
+              disabled={page === totalPages}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              Siguiente
+              <ChevronRight size={18} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DETALLES - ACTUALIZADO CON ENLACE */}
+      {showModal && selectedArticulo && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-800 text-white p-6 flex justify-between items-center">
+              <h2 className="text-2xl font-bold">📋 Detalles del Artículo</h2>
+              <button
+                onClick={() => setShowModal(false)}
+                className="text-2xl hover:bg-blue-700 p-2 rounded transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* FOTO GRANDE */}
+              {selectedArticulo.foto_url && (
+                <div className="flex justify-center">
+                  <img
+                    src={selectedArticulo.foto_url}
+                    alt={selectedArticulo.nombre}
+                    className="w-64 h-64 object-cover rounded-lg shadow-md"
+                  />
+                </div>
+              )}
+
+              {/* INFO BÁSICA */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                <h3 className="text-xl font-bold text-gray-900 mb-4">{selectedArticulo.nombre}</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Código</p>
+                    <p className="text-lg font-mono font-bold text-gray-900">{selectedArticulo.codigo}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Categoría</p>
+                    <p className="text-lg font-bold text-gray-900">{selectedArticulo.categoria || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Stock Disponible</p>
+                    <p className="text-lg font-bold text-green-600">{selectedArticulo.cantidad_stock} unidades</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Stock Mínimo</p>
+                    <p className="text-lg font-bold text-gray-900">{selectedArticulo.cantidad_minima || 0}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* PRECIOS */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <p className="text-sm text-gray-600">Precio de Costo</p>
+                  <p className="text-2xl font-bold text-orange-600">
+                    L. {selectedArticulo.precio_costo?.toFixed(2) || '0.00'}
+                  </p>
+                </div>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <p className="text-sm text-gray-600">Precio de Venta</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    L. {selectedArticulo.precio_unitario?.toFixed(2) || '0.00'}
+                  </p>
+                </div>
+              </div>
+
+              {/* MARGEN DE GANANCIA */}
+              {selectedArticulo.precio_costo && selectedArticulo.precio_unitario && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <p className="text-sm text-gray-600">Margen de Ganancia</p>
+                  <p className="text-2xl font-bold text-purple-600">
+                    {(
+                      ((selectedArticulo.precio_unitario - selectedArticulo.precio_costo) /
+                        selectedArticulo.precio_costo) *
+                      100
+                    ).toFixed(2)}
+                    %
+                  </p>
+                </div>
+              )}
+
+              {/* DESCRIPCIÓN */}
+              {selectedArticulo.descripcion && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <p className="text-sm font-bold text-gray-700 mb-2">Descripción</p>
+                  <p className="text-gray-700 leading-relaxed">{selectedArticulo.descripcion}</p>
+                </div>
+              )}
+
+              {/* ENLACE - NUEVO EN MODAL */}
+              {selectedArticulo.enlace && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm font-bold text-gray-700 mb-2">Enlace de Referencia</p>
+                  <a
+                    href={selectedArticulo.enlace}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold"
+                  >
+                    <ExternalLink size={18} />
+                    Ver Referencia
+                  </a>
+                </div>
+              )}
+
+              {/* BOTONES */}
+              <div className="flex gap-3 pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => {
+                    onEdit(selectedArticulo);
+                    setShowModal(false);
+                  }}
+                  className="flex-1 px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-semibold transition"
+                >
+                  ✏️ Editar
+                </button>
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 font-semibold transition"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

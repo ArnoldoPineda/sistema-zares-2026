@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabaseClient';
-import { Plus, Trash2, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, AlertCircle, Search } from 'lucide-react';
 
 export default function VentasForm({ venta, onSave, onClose, isLoading }) {
   const [clienteId, setClienteId] = useState('');
@@ -10,6 +10,8 @@ export default function VentasForm({ venta, onSave, onClose, isLoading }) {
   const [observaciones, setObservaciones] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showArticuloModal, setShowArticuloModal] = useState(false);
 
   useEffect(() => {
     fetchClientes();
@@ -20,8 +22,8 @@ export default function VentasForm({ venta, onSave, onClose, isLoading }) {
     try {
       const { data, error: err } = await supabase
         .from('clientes')
-        .select('id, nombre')
-        .order('nombre');
+        .select('id, nombre_completo, nombre_usuario')
+        .order('nombre_completo');
       
       if (err) throw err;
       setClientes(data || []);
@@ -49,18 +51,35 @@ export default function VentasForm({ venta, onSave, onClose, isLoading }) {
     }
   };
 
-  const agregarDetalle = () => {
-    setDetalles([
-      ...detalles,
-      {
-        articulo_id: '',
+  // Filtrar artículos por búsqueda
+  const articulosFiltrados = articulos.filter(a =>
+    (a.nombre && a.nombre.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (a.codigo && a.codigo.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  const agregarDetalle = (articulo) => {
+    const existe = detalles.find(d => d.articulo_id === articulo.id);
+    
+    if (existe) {
+      // Si ya existe, aumentar cantidad
+      actualizarDetalle(detalles.indexOf(existe), 'cantidad', existe.cantidad + 1);
+    } else {
+      // Agregar nuevo
+      const nuevoDetalle = {
+        articulo_id: articulo.id,
         cantidad: 1,
-        precio_unitario: 0,
-        subtotal: 0,
-        nombre: '',
-        stockDisponible: 0,
-      },
-    ]);
+        precio_unitario: articulo.precio || 0,
+        subtotal: articulo.precio || 0,
+        nombre: articulo.nombre,
+        foto_url: articulo.foto_url,
+        stockDisponible: articulo.cantidad_stock || 0,
+      };
+      setDetalles([...detalles, nuevoDetalle]);
+      setError('');
+    }
+    
+    setSearchTerm('');
+    setShowArticuloModal(false);
   };
 
   const actualizarDetalle = (index, campo, valor) => {
@@ -69,21 +88,7 @@ export default function VentasForm({ venta, onSave, onClose, isLoading }) {
     const nuevosDetalles = [...detalles];
     const detalle = nuevosDetalles[index];
 
-    if (campo === 'articulo_id') {
-      const articulo = articulos.find(a => a.id === valor);
-      if (articulo) {
-        detalle.articulo_id = articulo.id;
-        detalle.nombre = articulo.nombre;
-        // Usar cantidad_stock, no stock
-        detalle.precio_unitario = articulo.precio_unitario || articulo.precio_venta || articulo.precio || 0;
-        detalle.stockDisponible = articulo.cantidad_stock || 0;
-        detalle.cantidad = 1;
-        detalle.subtotal = detalle.precio_unitario;
-        setError('');
-        console.log('Artículo seleccionado:', detalle);
-      }
-    } 
-    else if (campo === 'cantidad') {
+    if (campo === 'cantidad') {
       const cantidad = parseInt(valor) || 0;
       console.log(`Stock disponible: ${detalle.stockDisponible}, Cantidad solicitada: ${cantidad}`);
       
@@ -192,7 +197,7 @@ export default function VentasForm({ venta, onSave, onClose, isLoading }) {
               <option value="">-- Selecciona cliente --</option>
               {clientes.map(c => (
                 <option key={c.id} value={c.id}>
-                  {c.nombre}
+                  {c.nombre_completo}
                 </option>
               ))}
             </select>
@@ -202,13 +207,102 @@ export default function VentasForm({ venta, onSave, onClose, isLoading }) {
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-gray-900">Artículos ({articulos.length})</h3>
               <button
-                onClick={agregarDetalle}
+                onClick={() => setShowArticuloModal(true)}
                 className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm"
               >
                 <Plus size={18} />
                 Agregar Artículo
               </button>
             </div>
+
+            {/* Modal de selección de artículos con búsqueda visual */}
+            {showArticuloModal && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+                  <div className="sticky top-0 bg-gray-100 p-4 border-b flex justify-between items-center">
+                    <h3 className="font-bold text-gray-900">Selecciona un Artículo</h3>
+                    <button
+                      onClick={() => setShowArticuloModal(false)}
+                      className="text-2xl hover:bg-gray-200 p-1 rounded"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="p-4 space-y-4">
+                    {/* Buscador */}
+                    <div className="relative">
+                      <Search className="absolute left-3 top-3 text-gray-400" size={20} />
+                      <input
+                        type="text"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Busca por nombre o código..."
+                        autoFocus
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    {/* Grid de artículos */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 max-h-[60vh] overflow-y-auto">
+                      {articulosFiltrados.length === 0 ? (
+                        <p className="col-span-full text-center text-gray-500 py-8">
+                          No se encontraron artículos
+                        </p>
+                      ) : (
+                        articulosFiltrados.map(articulo => (
+                          <button
+                            key={articulo.id}
+                            onClick={() => agregarDetalle(articulo)}
+                            className="p-3 border border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition text-left"
+                          >
+                            {/* Foto */}
+                            {articulo.foto_url && (
+                              <img
+                                src={articulo.foto_url}
+                                alt={articulo.nombre}
+                                className="w-full h-32 object-cover rounded mb-2"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                }}
+                              />
+                            )}
+
+                            {/* Nombre */}
+                            <p className="font-bold text-gray-900 text-sm line-clamp-2 mb-1">
+                              {articulo.nombre}
+                            </p>
+
+                            {/* Código */}
+                            {articulo.codigo && (
+                              <p className="text-xs text-gray-600">
+                                Código: {articulo.codigo}
+                              </p>
+                            )}
+
+                            {/* Precio */}
+                            {articulo.precio && (
+                              <p className="text-sm font-bold text-blue-600 mt-1">
+                                L. {articulo.precio.toFixed(2)}
+                              </p>
+                            )}
+
+                            {/* Stock */}
+                            <p className={`text-xs mt-1 font-semibold ${
+                              articulo.cantidad_stock === 0 ? 'text-red-600' :
+                              articulo.cantidad_stock <= 5 ? 'text-yellow-600' :
+                              'text-green-600'
+                            }`}>
+                              Stock: {articulo.cantidad_stock || 0}
+                            </p>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {detalles.length === 0 ? (
               <p className="text-gray-500">No hay artículos agregados</p>
@@ -219,84 +313,79 @@ export default function VentasForm({ venta, onSave, onClose, isLoading }) {
                     key={idx}
                     className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3"
                   >
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">
-                          Artículo
-                        </label>
-                        <select
-                          value={detalle.articulo_id || ''}
-                          onChange={e =>
-                            actualizarDetalle(idx, 'articulo_id', e.target.value)
-                          }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                        >
-                          <option value="">-- Selecciona --</option>
-                          {articulos.map(a => (
-                            <option key={a.id} value={a.id}>
-                              {a.nombre} (Stock: {a.cantidad_stock || 0})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">
-                          Cantidad
-                          {detalle.stockDisponible > 0 && (
-                            <span className="text-blue-600">
-                              {' '}
-                              (Máx: {detalle.stockDisponible})
-                            </span>
-                          )}
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          max={detalle.stockDisponible || 999}
-                          value={detalle.cantidad}
-                          onChange={e =>
-                            actualizarDetalle(idx, 'cantidad', e.target.value)
-                          }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    <div className="flex gap-4">
+                      {/* Foto pequeña */}
+                      {detalle.foto_url && (
+                        <img
+                          src={detalle.foto_url}
+                          alt={detalle.nombre}
+                          className="w-20 h-20 object-cover rounded"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                          }}
                         />
-                      </div>
+                      )}
 
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">
-                          Precio Unitario
-                        </label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={detalle.precio_unitario}
-                          onChange={e =>
-                            actualizarDetalle(idx, 'precio_unitario', e.target.value)
-                          }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                        />
-                      </div>
+                      {/* Información y controles */}
+                      <div className="flex-1">
+                        <p className="font-bold text-gray-900 mb-3">
+                          {detalle.nombre}
+                        </p>
 
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">
-                          Subtotal
-                        </label>
-                        <input
-                          type="text"
-                          value={`L. ${detalle.subtotal.toFixed(2)}`}
-                          disabled
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-100"
-                        />
-                      </div>
-                    </div>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                          <div>
+                            <label className="block text-xs font-bold text-gray-700 mb-1">
+                              Cantidad (Máx: {detalle.stockDisponible})
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              max={detalle.stockDisponible || 999}
+                              value={detalle.cantidad}
+                              onChange={e =>
+                                actualizarDetalle(idx, 'cantidad', e.target.value)
+                              }
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                            />
+                          </div>
 
-                    <div className="flex justify-end">
-                      <button
-                        onClick={() => eliminarDetalle(idx)}
-                        className="text-red-600 hover:bg-red-100 p-2 rounded text-sm font-semibold"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-700 mb-1">
+                              Precio Unitario
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={detalle.precio_unitario}
+                              onChange={e =>
+                                actualizarDetalle(idx, 'precio_unitario', e.target.value)
+                              }
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-gray-700 mb-1">
+                              Subtotal
+                            </label>
+                            <input
+                              type="text"
+                              value={`L. ${detalle.subtotal.toFixed(2)}`}
+                              disabled
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-100"
+                            />
+                          </div>
+
+                          <div className="flex items-end">
+                            <button
+                              onClick={() => eliminarDetalle(idx)}
+                              className="w-full text-red-600 hover:bg-red-100 p-2 rounded text-sm font-semibold"
+                            >
+                              <Trash2 size={18} className="mx-auto" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}
