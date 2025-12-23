@@ -7,7 +7,6 @@ export const useArticulos = () => {
   const [error, setError] = useState(null);
   const [totalCount, setTotalCount] = useState(0);
 
-  // Obtener artículos con paginación
   const fetchArticulos = async (page = 1, searchTerm = '', limit = 10) => {
     try {
       setLoading(true);
@@ -17,14 +16,12 @@ export const useArticulos = () => {
         .from('articulos')
         .select('*', { count: 'exact' });
 
-      // Filtro de búsqueda
       if (searchTerm) {
         query = query.or(
           `nombre.ilike.%${searchTerm}%,codigo.ilike.%${searchTerm}%,categoria.ilike.%${searchTerm}%`
         );
       }
 
-      // Paginación
       const from = (page - 1) * limit;
       const to = from + limit - 1;
 
@@ -44,7 +41,6 @@ export const useArticulos = () => {
     }
   };
 
-  // Crear nuevo artículo
   const createArticulo = async (articuloData) => {
     try {
       setLoading(true);
@@ -67,7 +63,6 @@ export const useArticulos = () => {
     }
   };
 
-  // Actualizar artículo
   const updateArticulo = async (id, articuloData) => {
     try {
       setLoading(true);
@@ -91,7 +86,6 @@ export const useArticulos = () => {
     }
   };
 
-  // Eliminar artículo
   const deleteArticulo = async (id) => {
     try {
       setLoading(true);
@@ -114,49 +108,6 @@ export const useArticulos = () => {
     }
   };
 
-  // Subir foto a Storage
-  const uploadFoto = async (articuloId, file) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${articuloId}-${Date.now()}.${fileExt}`;
-      const filePath = `articulos/${fileName}`;
-
-      // Subir a Storage
-      const { error: uploadError } = await supabase.storage
-        .from('articulos')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      // Obtener URL pública
-      const { data } = supabase.storage
-        .from('articulos')
-        .getPublicUrl(filePath);
-
-      // Actualizar BD con URL
-      const { data: updated, error: updateError } = await supabase
-        .from('articulos')
-        .update({ foto_url: data.publicUrl })
-        .eq('id', articuloId)
-        .select();
-
-      if (updateError) throw updateError;
-
-      // Actualizar estado local
-      setArticulos(articulos.map(a => a.id === articuloId ? updated[0] : a));
-
-      return { success: true, url: data.publicUrl };
-    } catch (err) {
-      setError(err.message);
-      return { success: false, error: err.message };
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return {
     articulos,
     loading,
@@ -166,6 +117,5 @@ export const useArticulos = () => {
     createArticulo,
     updateArticulo,
     deleteArticulo,
-    uploadFoto,
   };
 };

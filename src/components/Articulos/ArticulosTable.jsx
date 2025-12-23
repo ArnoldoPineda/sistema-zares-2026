@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { Eye, Trash2, Edit2, Upload, Search, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
+import { Eye, Trash2, Edit2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function ArticulosTable({
   articulos,
   loading,
   onEdit,
   onDelete,
-  onUploadFoto,
   searchTerm,
   onSearchChange,
   page,
@@ -16,22 +15,12 @@ export default function ArticulosTable({
 }) {
   const [selectedArticulo, setSelectedArticulo] = useState(null);
   const [showModal, setShowModal] = useState(false);
-  const [uploadingId, setUploadingId] = useState(null);
 
   const totalPages = Math.ceil(totalCount / itemsPerPage);
 
   const handleViewDetails = (articulo) => {
     setSelectedArticulo(articulo);
     setShowModal(true);
-  };
-
-  const handleUploadFoto = async (articuloId, event) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setUploadingId(articuloId);
-      await onUploadFoto(articuloId, file);
-      setUploadingId(null);
-    }
   };
 
   const handleDelete = (articulo) => {
@@ -68,14 +57,13 @@ export default function ArticulosTable({
               <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Precio Costo</th>
               <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Precio Venta</th>
               <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Categoría</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Enlace</th>
               <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase">Acciones</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="9" className="px-6 py-8 text-center">
+                <td colSpan="8" className="px-6 py-8 text-center">
                   <div className="flex justify-center items-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                   </div>
@@ -83,7 +71,7 @@ export default function ArticulosTable({
               </tr>
             ) : articulos.length === 0 ? (
               <tr>
-                <td colSpan="9" className="px-6 py-8 text-center text-gray-500">
+                <td colSpan="8" className="px-6 py-8 text-center text-gray-500">
                   📦 No hay artículos disponibles
                 </td>
               </tr>
@@ -98,26 +86,15 @@ export default function ArticulosTable({
                           src={articulo.foto_url}
                           alt={articulo.nombre}
                           className="w-12 h-12 rounded-lg object-cover"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                          }}
                         />
                       ) : (
                         <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center text-gray-400">
                           📦
                         </div>
                       )}
-                      <label className="cursor-pointer">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => handleUploadFoto(articulo.id, e)}
-                          className="hidden"
-                        />
-                        <Upload
-                          size={16}
-                          className={`text-blue-600 hover:text-blue-800 ${
-                            uploadingId === articulo.id ? 'animate-spin' : ''
-                          }`}
-                        />
-                      </label>
                     </div>
                   </td>
 
@@ -158,7 +135,7 @@ export default function ArticulosTable({
                   {/* PRECIO VENTA */}
                   <td className="px-6 py-4">
                     <p className="text-green-600 font-bold text-lg">
-                      L. {articulo.precio_unitario?.toFixed(2) || '0.00'}
+                      L. {articulo.precio_venta?.toFixed(2) || '0.00'}
                     </p>
                   </td>
 
@@ -167,23 +144,6 @@ export default function ArticulosTable({
                     <span className="text-xs bg-purple-100 text-purple-800 px-3 py-1 rounded-full">
                       {articulo.categoria || 'N/A'}
                     </span>
-                  </td>
-
-                  {/* ENLACE - NUEVO */}
-                  <td className="px-6 py-4">
-                    {articulo.enlace ? (
-                      <a
-                        href={articulo.enlace}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-600 rounded-full text-xs hover:bg-blue-200 transition"
-                      >
-                        <ExternalLink size={14} />
-                        Ver
-                      </a>
-                    ) : (
-                      <span className="text-xs text-gray-400">—</span>
-                    )}
                   </td>
 
                   {/* ACCIONES */}
@@ -266,7 +226,7 @@ export default function ArticulosTable({
         </div>
       )}
 
-      {/* MODAL DETALLES - ACTUALIZADO CON ENLACE */}
+      {/* MODAL DETALLES */}
       {showModal && selectedArticulo && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -288,6 +248,9 @@ export default function ArticulosTable({
                     src={selectedArticulo.foto_url}
                     alt={selectedArticulo.nombre}
                     className="w-64 h-64 object-cover rounded-lg shadow-md"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
                   />
                 </div>
               )}
@@ -326,18 +289,18 @@ export default function ArticulosTable({
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                   <p className="text-sm text-gray-600">Precio de Venta</p>
                   <p className="text-2xl font-bold text-green-600">
-                    L. {selectedArticulo.precio_unitario?.toFixed(2) || '0.00'}
+                    L. {selectedArticulo.precio_venta?.toFixed(2) || '0.00'}
                   </p>
                 </div>
               </div>
 
               {/* MARGEN DE GANANCIA */}
-              {selectedArticulo.precio_costo && selectedArticulo.precio_unitario && (
+              {selectedArticulo.precio_costo && selectedArticulo.precio_venta && (
                 <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                   <p className="text-sm text-gray-600">Margen de Ganancia</p>
                   <p className="text-2xl font-bold text-purple-600">
                     {(
-                      ((selectedArticulo.precio_unitario - selectedArticulo.precio_costo) /
+                      ((selectedArticulo.precio_venta - selectedArticulo.precio_costo) /
                         selectedArticulo.precio_costo) *
                       100
                     ).toFixed(2)}
@@ -351,22 +314,6 @@ export default function ArticulosTable({
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                   <p className="text-sm font-bold text-gray-700 mb-2">Descripción</p>
                   <p className="text-gray-700 leading-relaxed">{selectedArticulo.descripcion}</p>
-                </div>
-              )}
-
-              {/* ENLACE - NUEVO EN MODAL */}
-              {selectedArticulo.enlace && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm font-bold text-gray-700 mb-2">Enlace de Referencia</p>
-                  <a
-                    href={selectedArticulo.enlace}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold"
-                  >
-                    <ExternalLink size={18} />
-                    Ver Referencia
-                  </a>
                 </div>
               )}
 

@@ -1,15 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { useArticulos } from './hooks/useArticulos';
 import { useClientes } from './hooks/useClientes';
 import { useVentas } from './hooks/useVentas';
 import { useReportes } from './hooks/useReportes';
 import LoginPage from './components/Auth/LoginPage';
 import RegisterPage from './components/Auth/RegisterPage';
 import Layout from './components/Layout/Layout';
-import ArticulosTable from './components/Articulos/ArticulosTable';
-import ArticulosForm from './components/Articulos/ArticulosForm';
+import ArticulosPage from './components/Articulos/ArticulosPage';
 import ClientesTable from './components/Clientes/ClientesTable';
 import ClientesForm from './components/Clientes/ClientesForm';
 import VentasTable from './components/Ventas/VentasTable';
@@ -22,125 +20,12 @@ import ReporteClientes from './components/Reports/ReporteClientes';
 import { Plus, Eye, X, Trash2 } from 'lucide-react';
 
 // ============================================================
-// DASHBOARD - Importado desde Dashboard.jsx
+// DASHBOARD
 // ============================================================
 import Dashboard from './components/Dashboard/Dashboard';
 
 function DashboardPage() {
   return <Dashboard />;
-}
-
-// ============================================================
-// ARTÍCULOS
-// ============================================================
-function ArticulosPage() {
-  const {
-    articulos,
-    loading,
-    error,
-    totalCount,
-    fetchArticulos,
-    createArticulo,
-    updateArticulo,
-    deleteArticulo,
-    uploadFoto,
-  } = useArticulos();
-
-  const [page, setPage] = useState(1);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showForm, setShowForm] = useState(false);
-  const [editingArticulo, setEditingArticulo] = useState(null);
-  const itemsPerPage = 10;
-
-  useEffect(() => {
-    fetchArticulos(page, searchTerm, itemsPerPage);
-  }, [page, searchTerm]);
-
-  const handleAddNew = () => {
-    setEditingArticulo(null);
-    setShowForm(true);
-  };
-
-  const handleEdit = (articulo) => {
-    setEditingArticulo(articulo);
-    setShowForm(true);
-  };
-
-  const handleCloseForm = () => {
-    setShowForm(false);
-    setEditingArticulo(null);
-  };
-
-  const handleSaveArticulo = async (formData) => {
-    if (editingArticulo) {
-      const result = await updateArticulo(editingArticulo.id, formData);
-      if (result.success) {
-        handleCloseForm();
-      }
-    } else {
-      const result = await createArticulo(formData);
-      if (result.success) {
-        handleCloseForm();
-        setPage(1);
-      }
-    }
-  };
-
-  const handleDeleteArticulo = async (id) => {
-    await deleteArticulo(id);
-  };
-
-  const handleUploadFoto = async (articuloId, file) => {
-    await uploadFoto(articuloId, file);
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-4xl font-bold text-gray-900">📦 Artículos</h1>
-          <p className="text-gray-600 mt-2">Gestiona tu inventario de productos</p>
-        </div>
-        <button
-          onClick={handleAddNew}
-          className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition font-semibold"
-        >
-          <Plus size={20} />
-          Nuevo Artículo
-        </button>
-      </div>
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-          ❌ Error: {error}
-        </div>
-      )}
-
-      <ArticulosTable
-        articulos={articulos}
-        loading={loading}
-        onEdit={handleEdit}
-        onDelete={handleDeleteArticulo}
-        onUploadFoto={handleUploadFoto}
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        page={page}
-        onPageChange={setPage}
-        totalCount={totalCount}
-        itemsPerPage={itemsPerPage}
-      />
-
-      {showForm && (
-        <ArticulosForm
-          articulo={editingArticulo}
-          onSave={handleSaveArticulo}
-          onClose={handleCloseForm}
-          isLoading={loading}
-          onUploadFoto={handleUploadFoto}
-        />
-      )}
-    </div>
-  );
 }
 
 // ============================================================
@@ -269,7 +154,7 @@ function ClientesPage() {
 }
 
 // ============================================================
-// VENTAS - CON handleSaveVenta CORREGIDO
+// VENTAS
 // ============================================================
 function VentasPage() {
   const {
@@ -290,6 +175,7 @@ function VentasPage() {
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [showFormVenta, setShowFormVenta] = useState(false);
+  const [editingVenta, setEditingVenta] = useState(null);
   const [showDetallesModal, setShowDetallesModal] = useState(false);
   const [showCobroModal, setShowCobroModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -300,7 +186,20 @@ function VentasPage() {
   }, [page, searchTerm, refreshKey]);
 
   const handleAddNew = () => {
+    setEditingVenta(null);
     setShowFormVenta(true);
+  };
+
+  // ✅ NUEVA FUNCIÓN: handleEdit para editar ventas
+  const handleEdit = (venta) => {
+    console.log('📝 Editando venta:', venta);
+    setEditingVenta(venta);
+    setShowFormVenta(true);
+  };
+
+  const handleCloseForm = () => {
+    setShowFormVenta(false);
+    setEditingVenta(null);
   };
 
   const handleViewDetails = async (venta) => {
@@ -308,9 +207,6 @@ function VentasPage() {
     setShowDetallesModal(true);
   };
 
-  // ============================================================
-  // FUNCIÓN handleSaveVenta MEJORADA
-  // ============================================================
   const handleSaveVenta = async (formData) => {
     console.log('=== handleSaveVenta ===');
     console.log('Datos recibidos:', formData);
@@ -332,7 +228,7 @@ function VentasPage() {
         console.log('✅ Venta creada exitosamente');
         console.log('Venta ID:', result.ventaId);
         
-        setShowFormVenta(false);
+        handleCloseForm();
         await new Promise(resolve => setTimeout(resolve, 500));
         setPage(1);
         setRefreshKey(prev => prev + 1);
@@ -347,14 +243,12 @@ function VentasPage() {
       return { success: false, error: err.message };
     }
   };
-  // ============================================================
 
   const handleSaveCobro = async (cobroData) => {
     const result = await createCobro(ventaDetalles.id, cobroData);
     if (result.success) {
       await fetchVentaDetalles(ventaDetalles.id);
       setShowCobroModal(false);
-      // ✅ Refrescar tabla de ventas para mostrar estado PAGADO
       setRefreshKey(prev => prev + 1);
       await fetchVentas(page, searchTerm, itemsPerPage);
     }
@@ -399,6 +293,7 @@ function VentasPage() {
         key={refreshKey}
         ventas={ventas}
         loading={loading}
+        onEdit={handleEdit}
         onViewDetails={handleViewDetails}
         onDelete={handleDeleteVenta}
         searchTerm={searchTerm}
@@ -411,9 +306,9 @@ function VentasPage() {
 
       {showFormVenta && (
         <VentasForm
-          venta={null}
+          venta={editingVenta}
           onSave={handleSaveVenta}
-          onClose={() => setShowFormVenta(false)}
+          onClose={handleCloseForm}
           isLoading={loading}
         />
       )}
