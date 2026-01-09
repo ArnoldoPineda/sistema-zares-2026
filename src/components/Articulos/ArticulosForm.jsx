@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from '../../services/supabaseClient';
+import supabase from '../../services/supabaseClient';
 import { X, Camera, Upload as UploadIcon } from 'lucide-react';
 
 export default function ArticulosForm({ articulo, onClose, onSave }) {

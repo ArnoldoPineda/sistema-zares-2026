@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../services/supabaseClient';
+import supabase from '../../services/supabaseClient';
 import { Plus, Trash2, AlertCircle, Search } from 'lucide-react';
 
 export default function VentasForm({ venta, onSave, onClose, isLoading }) {
@@ -68,8 +68,8 @@ export default function VentasForm({ venta, onSave, onClose, isLoading }) {
       const nuevoDetalle = {
         articulo_id: articulo.id,
         cantidad: 1,
-        precio_unitario: articulo.precio || 0,
-        subtotal: articulo.precio || 0,
+        precio_unitario: articulo.precio_venta || 0,
+        subtotal: articulo.precio_venta || 0,
         nombre: articulo.nombre,
         foto_url: articulo.foto_url,
         stockDisponible: articulo.cantidad_stock || 0,
@@ -281,9 +281,9 @@ export default function VentasForm({ venta, onSave, onClose, isLoading }) {
                             )}
 
                             {/* Precio */}
-                            {articulo.precio && (
+                            {articulo.precio_venta && (
                               <p className="text-sm font-bold text-blue-600 mt-1">
-                                L. {articulo.precio.toFixed(2)}
+                                L. {articulo.precio_venta.toFixed(2)}
                               </p>
                             )}
 

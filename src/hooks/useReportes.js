@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '../services/supabaseClient';
+import supabase from '../services/supabaseClient';
 
 export const useReportes = () => {
   const [loading, setLoading] = useState(false);
