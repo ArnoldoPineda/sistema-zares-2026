@@ -38,9 +38,9 @@ function ClientesPage() {
     error,
     totalCount,
     fetchClientes,
-    createCliente,
-    updateCliente,
-    deleteCliente,
+    crearCliente,
+    actualizarCliente,
+    eliminarCliente,
   } = useClientes();
 
   const [page, setPage] = useState(1);
@@ -69,22 +69,26 @@ function ClientesPage() {
   };
 
   const handleSaveCliente = async (formData) => {
-    if (editingCliente) {
-      const result = await updateCliente(editingCliente.id, formData);
-      if (result.success) {
-        handleCloseForm();
-      }
-    } else {
-      const result = await createCliente(formData);
-      if (result.success) {
+    try {
+      if (editingCliente) {
+        await actualizarCliente(editingCliente.id, formData);
         handleCloseForm();
         setPage(1);
+        await fetchClientes(1, searchTerm, itemsPerPage);
+      } else {
+        await crearCliente(formData);
+        handleCloseForm();
+        setPage(1);
+        await fetchClientes(1, searchTerm, itemsPerPage);
       }
+    } catch (err) {
+      console.error('Error al guardar cliente:', err);
     }
   };
 
   const handleDeleteCliente = async (id) => {
-    await deleteCliente(id);
+    await eliminarCliente(id);
+    await fetchClientes(page, searchTerm, itemsPerPage);
   };
 
   return (
@@ -124,10 +128,9 @@ function ClientesPage() {
 
       {showForm && (
         <ClientesForm
-          cliente={editingCliente}
+          clienteEditando={editingCliente}
           onSave={handleSaveCliente}
           onClose={handleCloseForm}
-          isLoading={loading}
         />
       )}
 
